@@ -15,6 +15,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from PIL import Image, ImageOps
 from pypdf import PdfReader, PdfWriter
 
+from . import audit as audit_mod
+from . import netguard, sitecheck
 from .prep import clean, fit
 
 pillow_heif.register_heif_opener()
@@ -232,7 +234,54 @@ def shrink_photo(path: str, max_side: int = 1600, quality: int = 80, output: str
             "size": list(im.size)}
 
 
+# ---- websites and projects (your own) ----
+def _report(issues: list[dict]) -> dict:
+    order = {"error": 0, "warn": 1, "info": 2}
+    issues = sorted(issues, key=lambda i: order[i["level"]])
+    return {"score": sitecheck.score(issues), "issues": [{k: i[k] for k in ("level", "id", "title", "fix", "count") if k in i} for i in issues]}
+
+
+@mcp.tool()
+def check_page_file(path: str, address: str = "", security: bool = False) -> dict:
+    """Check a saved .html file in the working folder: titles, descriptions, headings, alt text, labels, mixed content, and with security=true forms over http, files from other sites without integrity checks, inline code. Local only, no network. 'address' is the real web address of the page (only needed for the https checks)."""
+    f = existing(path)
+    html = f.read_text(encoding="utf-8", errors="replace")
+    return _report(sitecheck.run_static(html, address or None, security))
+
+
+@mcp.tool()
+def check_site(url: str, security: bool = False) -> dict:
+    """Check one live web page of your own: the same checks as check_page_file, plus page weight, compression, speed, heavy images and, with security=true, response headers (HSTS, Content-Security-Policy, framing, nosniff, referrer policy). Fetches only this address. Addresses inside private networks are refused. Use it only on sites you own or may test."""
+    try:
+        r, body, secs = sitecheck.fetch(url)
+    except netguard.Blocked as e:
+        raise ToolError(str(e))
+    except Exception as e:
+        raise ToolError(f"could not load that page: {e}")
+    html = body.decode(r.headers.get_content_charset() or "utf-8", "replace")
+    final = r.geturl()
+    issues = sitecheck.run_static(html, final, security) + sitecheck.run_live(final, len(body), r.headers, secs, html)
+    if security:
+        issues += sitecheck.run_security_live(final, r.headers)
+    out = _report(issues)
+    out["checked"] = final
+    return out
+
+
+@mcp.tool()
+def project_audit(folder: str = ".") -> dict:
+    """Look through a folder (a website or app project) for things that break a privacy-first setup: scripts, styles, fonts or images loaded from other sites, known trackers, text that looks like a key or password (the value is never shown), files over 2 MB, a missing README or LICENSE. Reads files only; skips .git, node_modules and vendor."""
+    d = safe(folder)
+    if not d.is_dir():
+        raise PathError(f"'{folder}' is not a folder here")
+    return audit_mod.audit(d)
+
+
 def main() -> None:
+    import sys
+    if sys.argv[1:2] == ["setup"]:
+        from .setup_cmd import main as setup
+        raise SystemExit(setup(sys.argv[2:]))
     mcp.run()
 
 

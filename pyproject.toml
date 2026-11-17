@@ -1,7 +1,7 @@
 [project]
 name = "mcp-doc-tools"
-version = "0.1.0"
-description = "MCP server with local document tools: read scans (OCR), work with PDFs, shrink photos. Runs on your computer, inside one folder."
+version = "0.2.0"
+description = "MCP server with local document tools: read scans (OCR), work with PDFs, shrink photos. Also checks your own websites and project folders. Runs on your computer, inside one folder."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

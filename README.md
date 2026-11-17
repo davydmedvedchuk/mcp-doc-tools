@@ -2,6 +2,8 @@
 
 ![MCP Doc Tools](docs/banner.jpg)
 
+> **Test version.** Every tool was tested here through a real MCP client, but the server has not yet been tried inside Claude Desktop or on Windows. Expect rough edges and please report them.
+
 An [MCP](https://modelcontextprotocol.io) server that gives an AI assistant hands for your documents: read a scan, work with PDFs, shrink photos. It runs on your computer. Nothing is uploaded, and the assistant can only touch **one folder you choose**.
 
 ## Tools
